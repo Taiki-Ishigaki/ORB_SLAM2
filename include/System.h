@@ -86,6 +86,9 @@ public:
     // since last call to this function
     bool MapChanged();
 
+    //Return Map_data
+    Map* Read_Map();
+
     // Reset the system (clear map)
     void Reset();
 

@@ -58,12 +58,37 @@ ${PROJECT_SOURCE_DIR}/../../../lib/libORB_SLAM2.so
 -lboost_system
 )
 
+find_package(catkin REQUIRED COMPONENTS
+  pcl_conversions pcl_ros roscpp rospy sensor_msgs std_msgs geometry_msgs eigen_conversions
+)
+
+find_package(PCL REQUIRED)
+
+include_directories(include ${catkin_INCLUDE_DIRS} ${PCL_INCLUDE_DIRS})
+
+#link_directories(${PCL_LIBRARY_DIRS})
+
+#catkin_package(
+#  INCLUDE_DIRS include
+#  LIBRARIES ${PROJECT_NAME}
+#  CATKIN_DEPENDS pcl_conversions pcl_ros roscpp rospy sensor_msgs std_msgs geometry_msgs eigen_conversions
+#)
+
 # Node for monocular camera
 rosbuild_add_executable(Mono
 src/ros_mono.cc
 )
 
 target_link_libraries(Mono
+${LIBS}
+)
+
+# Node for monocular camera
+rosbuild_add_executable(Mono_Pub
+src/ros_mono_pub.cc
+)
+
+target_link_libraries(Mono_Pub
 ${LIBS}
 )
 
