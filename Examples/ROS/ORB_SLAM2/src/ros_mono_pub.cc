@@ -29,6 +29,8 @@
 
 #include <ros/package.h>
 #include <sensor_msgs/PointCloud2.h>
+#include "geometry_msgs/PoseStamped.h"
+#include "geometry_msgs/PoseArray.h"
 #include <pcl_conversions/pcl_conversions.h>
 
 #include <pcl_ros/point_cloud.h>
@@ -45,6 +47,10 @@ pcl::PointCloud<pcl::PointXYZ> cloud_pcl_vp;
 ros::Publisher cloud_pub_vpRef;
 sensor_msgs::PointCloud2 cloud_ros_vpRef;
 pcl::PointCloud<pcl::PointXYZ> cloud_pcl_vpRef;
+
+ros::Publisher kf_pub;
+geometry_msgs::PoseArray kf_pt_array;
+//geometry_msgs::Pose camera_pose;
 
 class ImageGrabber
 {
@@ -70,8 +76,9 @@ int main(int argc, char **argv)
     cloud_pcl_vpRef.points.resize(cloud_pcl_vpRef.width * cloud_pcl_vpRef.height);
 
     ros::NodeHandle nh;
-    cloud_pub_vp = nh.advertise<sensor_msgs::PointCloud2>("cloud_vp", 1);
-    cloud_pub_vpRef = nh.advertise<sensor_msgs::PointCloud2>("cloud_vpRef", 1);
+    cloud_pub_vp = nh.advertise<sensor_msgs::PointCloud2>("cloud_vp", 1000);
+    cloud_pub_vpRef = nh.advertise<sensor_msgs::PointCloud2>("cloud_vpRef", 1000);
+    kf_pub = nh.advertise<geometry_msgs::PoseArray>("kf", 1000);
 
     if(argc != 3)
     {
@@ -114,9 +121,44 @@ void ImageGrabber::GrabImage(const sensor_msgs::ImageConstPtr& msg)
         return;
     }
 
-    cv::Mat camera_pose =  mpSLAM->TrackMonocular(cv_ptr->image,cv_ptr->header.stamp.toSec());
+    cv::Mat Tcw = mpSLAM->TrackMonocular(cv_ptr->image,cv_ptr->header.stamp.toSec());
     ORB_SLAM2::Map* mpMap = mpSLAM->Read_Map();
+    
+    // vector<ORB_SLAM2::KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
 
+    // cv::Mat Two = vpKFs[0]->GetPoseInverse();
+
+	// ORB_SLAM2::KeyFrame* pKF = mpSLAM->getTracker()->mCurrentFrame.mpReferenceKF;
+
+    // cv::Mat Trw = cv::Mat::eye(4, 4, CV_32F);
+    // Trw = Trw*pKF->GetPose()*Two;
+    // cv::Mat lit = mpSLAM->getTracker().mlRelativeFramePoses.back();
+    // cv::Mat Tcw = lit*Trw;
+    if(!Tcw.empty()){   
+        cv::Mat Rwc = Tcw.rowRange(0, 3).colRange(0, 3).t();
+        cv::Mat twc = -Rwc*Tcw.rowRange(0, 3).col(3);
+
+        vector<float> q = ORB_SLAM2::Converter::toQuaternion(Rwc);
+        // std::vector<ORB_SLAM2::MapPoint*> map_points = mpSLAM->GetTrackedMapPoints();
+        // int n_map_pts = map_points.size();
+
+        geometry_msgs::Pose camera_pose;
+
+        camera_pose.position.x = twc.at<float>(0);
+        camera_pose.position.y = twc.at<float>(1);
+        camera_pose.position.z = twc.at<float>(2);
+
+        camera_pose.orientation.x = q[0];
+        camera_pose.orientation.y = q[1];
+        camera_pose.orientation.z = q[2];
+        camera_pose.orientation.w = q[3];
+
+        kf_pt_array.poses.push_back(camera_pose);
+        kf_pt_array.header.frame_id = "base_link";
+        kf_pt_array.header.stamp = ros::Time::now();
+        kf_pub.publish(kf_pt_array);
+    }
+    
     const vector<ORB_SLAM2::MapPoint*> &vpMPs = mpMap->GetAllMapPoints();
     const vector<ORB_SLAM2::MapPoint*> &vpRefMPs = mpMap->GetReferenceMapPoints();
 
