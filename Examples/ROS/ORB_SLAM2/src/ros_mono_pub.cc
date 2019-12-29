@@ -17,8 +17,6 @@
 * You should have received a copy of the GNU General Public License
 * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
 */
-
-
 #include<iostream>
 #include<algorithm>
 #include<fstream>
@@ -32,6 +30,12 @@
 #include "geometry_msgs/PoseStamped.h"
 #include "geometry_msgs/PoseArray.h"
 #include <pcl_conversions/pcl_conversions.h>
+
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Vector3.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/static_transform_broadcaster.h>
+#include <geometry_msgs/TransformStamped.h>
 
 #include <pcl_ros/point_cloud.h>
 
@@ -68,6 +72,7 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "Mono_Pub");
     ros::start();
 
+    /*point cloud library*/
     cloud_pcl_vp.width  = 5000;
     cloud_pcl_vp.height = 1;
     cloud_pcl_vp.points.resize(cloud_pcl_vp.width * cloud_pcl_vp.height);
@@ -79,6 +84,30 @@ int main(int argc, char **argv)
     cloud_pub_vp = nh.advertise<sensor_msgs::PointCloud2>("cloud_vp", 1000);
     cloud_pub_vpRef = nh.advertise<sensor_msgs::PointCloud2>("cloud_vpRef", 1000);
     kf_pub = nh.advertise<geometry_msgs::PoseArray>("kf", 1000);
+
+    /*tf*/
+    tf2_ros::StaticTransformBroadcaster tb;
+    geometry_msgs::TransformStamped ts;
+
+    //time
+	ts.header.stamp = ros::Time::now();
+	ts.header.frame_id = "start_point";
+    ts.child_frame_id = "base_link";
+
+    tf2::Vector3 translation;
+	translation.setValue(0, 0, 0);
+	ts.transform.translation.x = translation.x();
+	ts.transform.translation.y = translation.y();
+	ts.transform.translation.z = translation.z();
+	
+	tf2::Quaternion rotation;
+	rotation.setRPY(0, 1.57, 0);
+	ts.transform.rotation.x = rotation.x();
+	ts.transform.rotation.y = rotation.y();
+	ts.transform.rotation.z = rotation.z();
+	ts.transform.rotation.w = rotation.w();
+	
+	tb.sendTransform(ts);
 
     if(argc != 3)
     {
@@ -93,6 +122,7 @@ int main(int argc, char **argv)
     ImageGrabber igb(&SLAM);
 
     ros::NodeHandle nodeHandler;
+    //ros::Subscriber sub = nodeHandler.subscribe("/webcam/image_raw", 1, &ImageGrabber::GrabImage,&igb);
     ros::Subscriber sub = nodeHandler.subscribe("/camera/image_raw", 1, &ImageGrabber::GrabImage,&igb);
 
     ros::spin();
@@ -124,23 +154,11 @@ void ImageGrabber::GrabImage(const sensor_msgs::ImageConstPtr& msg)
     cv::Mat Tcw = mpSLAM->TrackMonocular(cv_ptr->image,cv_ptr->header.stamp.toSec());
     ORB_SLAM2::Map* mpMap = mpSLAM->Read_Map();
     
-    // vector<ORB_SLAM2::KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
-
-    // cv::Mat Two = vpKFs[0]->GetPoseInverse();
-
-	// ORB_SLAM2::KeyFrame* pKF = mpSLAM->getTracker()->mCurrentFrame.mpReferenceKF;
-
-    // cv::Mat Trw = cv::Mat::eye(4, 4, CV_32F);
-    // Trw = Trw*pKF->GetPose()*Two;
-    // cv::Mat lit = mpSLAM->getTracker().mlRelativeFramePoses.back();
-    // cv::Mat Tcw = lit*Trw;
     if(!Tcw.empty()){   
         cv::Mat Rwc = Tcw.rowRange(0, 3).colRange(0, 3).t();
         cv::Mat twc = -Rwc*Tcw.rowRange(0, 3).col(3);
 
         vector<float> q = ORB_SLAM2::Converter::toQuaternion(Rwc);
-        // std::vector<ORB_SLAM2::MapPoint*> map_points = mpSLAM->GetTrackedMapPoints();
-        // int n_map_pts = map_points.size();
 
         geometry_msgs::Pose camera_pose;
 
