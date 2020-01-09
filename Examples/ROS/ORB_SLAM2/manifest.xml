@@ -11,7 +11,7 @@
   <depend package="sensor_msgs"/>
   <depend package="image_transport"/>
   <depend package="cv_bridge"/>
-
+  <exec_depend>rviz</exec_depend>
 
 </package>
 

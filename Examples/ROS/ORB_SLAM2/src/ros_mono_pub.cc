@@ -101,7 +101,7 @@ int main(int argc, char **argv)
 	ts.transform.translation.z = translation.z();
 	
 	tf2::Quaternion rotation;
-	rotation.setRPY(0, 1.57, 0);
+	rotation.setRPY(-1.57, 0, 0);
 	ts.transform.rotation.x = rotation.x();
 	ts.transform.rotation.y = rotation.y();
 	ts.transform.rotation.z = rotation.z();
@@ -122,7 +122,7 @@ int main(int argc, char **argv)
     ImageGrabber igb(&SLAM);
 
     ros::NodeHandle nodeHandler;
-    //ros::Subscriber sub = nodeHandler.subscribe("/webcam/image_raw", 1, &ImageGrabber::GrabImage,&igb);
+    //ros::Subscriber sub = nodeHandler.subscribe("/webcam/image_raw", 1000, &ImageGrabber::GrabImage,&igb);
     ros::Subscriber sub = nodeHandler.subscribe("/camera/image_raw", 1, &ImageGrabber::GrabImage,&igb);
 
     ros::spin();
@@ -197,7 +197,7 @@ void ImageGrabber::GrabImage(const sensor_msgs::ImageConstPtr& msg)
         cloud_pcl_vp.points[i].z = pos.at<float>(2);
     }
 
-    pcl::toROSMsg(cloud_pcl_vp, cloud_ros_vp);
+    pcl::toROSMsg(cloud_pcl_vp, cloud_ros_vp);  
     cloud_ros_vp.header.frame_id = "base_link";
     cloud_ros_vp.header.stamp = ros::Time::now();
     cloud_pub_vp.publish(cloud_ros_vp);
